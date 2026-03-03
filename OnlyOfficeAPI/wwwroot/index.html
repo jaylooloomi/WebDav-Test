@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnlyOffice 文檔編輯器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .editor-container {
+            flex: 1;
+            padding: 20px;
+            overflow: auto;
+        }
+        
+        #placeholder {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>OnlyOffice 文檔編輯器</h1>
+            <div>
+                <button id="saveBtn" style="padding: 8px 16px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">💾 保存</button>
+                <span id="status">初始化中...</span>
+            </div>
+        </div>
+        <div class="editor-container">
+            <div id="placeholder"></div>
+        </div>
+    </div>
+
+    <script src="http://localhost:8080/web-apps/apps/api/documents/api.js"></script>
+    
+    <script>
+        // 配置參數
+        const API_HOST = "192.168.137.1";
+        const API_PORT = "5001";
+        const DOCUMENT_FILE = "2023_002.docx";
+        const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
+        
+        let docEditor = null;
+        
+        // 等待 DocsAPI 加载
+        window.addEventListener('load', function() {
+            console.log("⏳ 頁面已加載，檢查 DocsAPI...");
+            
+            // 檢查 DocsAPI 和 DocsAPI.DocEditor 是否可用
+            if (typeof DocsAPI === 'undefined') {
+                console.error("❌ DocsAPI 未定義");
+                document.getElementById("status").textContent = "❌ 錯誤: OnlyOffice SDK 未加載";
+                return;
+            }
+            
+            console.log("✓ DocsAPI 已加載");
+            console.log("DocsAPI 類型:", typeof DocsAPI);
+            console.log("DocsAPI.DocEditor 類型:", typeof DocsAPI.DocEditor);
+            
+            if (typeof DocsAPI.DocEditor === 'undefined') {
+                console.error("❌ DocsAPI.DocEditor 未定義");
+                document.getElementById("status").textContent = "❌ 錯誤: DocEditor 未定義";
+                return;
+            }
+            
+            initializeEditor();
+        });
+        
+        function initializeEditor() {
+            const fetchUrl = `${API_BASE_URL}/api/document/fetch/${DOCUMENT_FILE}`;
+            const callbackUrl = `${API_BASE_URL}/api/document/callback`;
+            
+            console.log("=== 初始化編輯器 ===");
+            console.log("fetchUrl:", fetchUrl);
+            console.log("callbackUrl:", callbackUrl);
+            
+            const config = {
+                "document": {
+                    "fileType": "docx",
+                    "key": "unique_key_" + new Date().getTime(),
+                    "title": DOCUMENT_FILE,
+                    "url": fetchUrl
+                },
+                "editorConfig": {
+                    "callbackUrl": callbackUrl,
+                    "mode": "edit",
+                    "customization": {
+                        "forcesave": true,
+                        "compactHeader": false
+                    },
+                    "user": {
+                        "name": "王鼎傑"
+                    }
+                },
+                "events": {
+                    "onDocumentReady": onDocumentReady,
+                    "onDocumentStateChange": onDocumentStateChange,
+                    "onError": onError,
+                    "onRequestSaveAs": onRequestSaveAs,
+                    "onRequestClose": onRequestClose
+                }
+            };
+            
+            console.log("📍 建立 DocEditor...");
+            try {
+                // 使用 window.docEditor 保存全局引用
+                window.docEditor = new DocsAPI.DocEditor("placeholder", config);
+                docEditor = window.docEditor;
+                console.log("✓ DocEditor 物件已建立");
+                console.log("docEditor:", docEditor);
+                document.getElementById("status").textContent = "⏳ 編輯器載入中...";
+            } catch (error) {
+                console.error("❌ 初始化失敗:", error);
+                document.getElementById("status").textContent = "❌ 初始化失敗: " + error.message;
+            }
+        }
+        
+        function onDocumentReady() {
+            console.log("✅ onDocumentReady 回調已觸發");
+            document.getElementById("status").textContent = "編輯器已就緒 ✓ 點擊💾保存";
+            setupSaveButton();
+        }
+        
+        function onDocumentStateChange(event) {
+            console.log("⏱️ 文檔編輯中:", event);
+            document.getElementById("status").textContent = "⏱️ 編輯中... (點擊保存或 30 秒後自動保存)";
+        }
+        
+        function onRequestSaveAs(event) {
+            console.log("💾 onRequestSaveAs 被觸發");
+            // OnlyOffice 請求保存時觸發
+            return true;
+        }
+        
+        function onRequestClose() {
+            console.log("❌ onRequestClose 被觸發");
+        }
+        
+        function onError(error) {
+            console.error("❌ 編輯器錯誤:", error);
+            document.getElementById("status").textContent = "❌ 錯誤: " + (error.data || error.message || JSON.stringify(error));
+        }
+        
+        function setupSaveButton() {
+            const saveBtn = document.getElementById('saveBtn');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', function() {
+                    console.log("🔵 用戶點擊保存按鈕");
+                    console.log("window.docEditor:", window.docEditor);
+                    
+                    // 使用 window.docEditor 而不是本地 docEditor
+                    if (window.docEditor) {
+                        // 通過 iframe 内的命令發送保存信號
+                        try {
+                            // 方法 1: 嘗試 commandCallback
+                            if (typeof window.docEditor.commandCallback === 'function') {
+                                console.log("使用 commandCallback");
+                                window.docEditor.commandCallback("forceSave");
+                            }
+                            // 方法 2: 嘗試直接調用保存
+                            else if (window.docEditor.iframe && window.docEditor.iframe.contentWindow) {
+                                console.log("✓ 找到 iframe，發送强制保存命令");
+                                window.docEditor.iframe.contentWindow.conversionApi.commandCallback("forceSave");
+                            }
+                            // 方法 3: 等待更多事件
+                            else {
+                                console.log("⚠️ 使用 30 秒自動保存");
+                                console.log("所有屬性:", Object.keys(window.docEditor));
+                                alert("正在使用自動保存機制（30 秒後保存）");
+                            }
+                            document.getElementById("status").textContent = "⏳ 正在保存...";
+                        } catch (error) {
+                            console.error("保存失敗:", error);
+                            alert("保存失敗: " + error.message);
+                        }
+                    } else {
+                        alert("編輯器未就緒，請稍候");
+                    }
+                });
+            }
+            
+            // Ctrl+S 快捷鍵
+            document.addEventListener('keydown', function(e) {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    console.log("⌨️ 檢測到 Ctrl+S");
+                    saveBtn.click();
+                    return false;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

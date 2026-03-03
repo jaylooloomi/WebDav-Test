@@ -267,30 +267,26 @@
                 console.log('文件信息:', fileInfo);
 
                 // 使用 OnlyOffice Document Server 编辑
-                // 简化配置：只配置必要的编辑参数，不需要复杂的 token 和回调机制
+                // 标准 OnlyOffice 配置格式
+                const editorConfig = {
+                    mode: 'edit',
+                    lang: 'zh-CN',
+                    user: {
+                        id: 'user_' + Math.random().toString(36).substr(2, 9),
+                        name: 'User'
+                    }
+                };
+
                 const config = {
+                    type: 'desktop',
                     documentType: 'word',
                     document: {
-                        fileType: 'docx',
-                        key: fileName + '_' + Date.now(),
                         title: fileName,
                         url: `${apiServer}/wopi/files/${fileName}/contents`,
-                        permissions: {
-                            edit: true,
-                            download: true,
-                            print: true,
-                            copy: true
-                        }
+                        fileType: 'docx',
+                        key: fileName + '_' + Date.now()
                     },
-                    editorConfig: {
-                        mode: 'edit',
-                        lang: 'zh-CN',
-                        autoSave: true,  // 启用自动保存
-                        user: {
-                            id: 'user_' + Math.random().toString(36).substr(2, 9),
-                            name: 'User'
-                        }
-                    }
+                    editorConfig: editorConfig
                 };
 
                 // 将 config 编码为 base64 后作为查询参数

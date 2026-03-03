@@ -309,23 +309,21 @@
                 const fileInfo = await checkResponse.json();
                 console.log('文件信息:', fileInfo);
 
-                updateInfo('✓ 正在下载文件内容...');
+                updateInfo('✓ 準備在 Collabora 中打開...');
 
-                // 第二步：直接下载文件，创建 blob URL
-                const fileResponse = await fetch(`${apiServer}/wopi/files/${fileName}/contents`);
-                if (!fileResponse.ok) {
-                    updateStatus(`❌ 文件下载失败 (${fileResponse.status})`, 'error');
-                    return;
-                }
-
-                const fileBlob = await fileResponse.blob();
-                const blobUrl = URL.createObjectURL(fileBlob);
-                console.log('Blob URL:', blobUrl);
-
-                // 第三步：使用 Collabora Online 嵌入式編輯器
-                // Collabora 通過 blob URL 直接編輯檔案
-                const encodedBlobUrl = encodeURIComponent(blobUrl);
-                const iframeUrl = `${oosServer}/lool/remote.html?url=${encodedBlobUrl}`;
+                // 第二步：構建 Collabora WOPI iframe URL
+                // 注意：Collabora 容器內需使用 host.docker.internal 訪問主機 API
+                // 前端將使用本地 API (192.168.137.1)，但生成的 iframe URL 中使用 host.docker.internal
+                
+                // 從前端的角度，API 在 192.168.137.1:5001
+                // 但从 Collabora 容器的角度，API 在 host.docker.internal:5001
+                const wopiHostUrl = `http://host.docker.internal:5001/wopi/files/${fileName}`;
+                const encodedWopiSrc = encodeURIComponent(wopiHostUrl);
+                
+                // 使用 WOPI 協議打開編輯器
+                // 格式：http://collabora:9980/lool/ws/client/{unique-id}/edit?WOPISrc=...
+                const uniqueId = Math.random().toString(36).substring(2, 9);
+                const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}`;
 
                 console.log('Collabora iframe URL:', iframeUrl);
 
@@ -338,8 +336,8 @@
                 
                 iframe.src = iframeUrl;
 
-                updateStatus(`✅ Collabora Online 编辑器已加载: ${fileName}`, 'success');
-                updateInfo(`✓ 文件已在编辑器中打开 | 大小: ${fileInfo.size} 字节 | WOPI 模式已启用`);
+                updateStatus(`✅ Collabora Online 編輯器已加載: ${fileName}`, 'success');
+                updateInfo(`✓ 文件已在編輯器中打開 | 大小: ${fileInfo.size} 字節`);
 
             } catch (error) {
                 console.error('加载失败:', error);

@@ -334,7 +334,7 @@
                 const encodedWopiSrc = encodeURIComponent(wopiSrcUrl);
                 const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}&access_token=${accessToken}`;
 
-                console.log('config:', config);
+                console.log('WOPI 参数:', { wopiSrcUrl, accessToken, uniqueId });
                 console.log('iframe URL:', iframeUrl);
 
                 // 加载 iframe

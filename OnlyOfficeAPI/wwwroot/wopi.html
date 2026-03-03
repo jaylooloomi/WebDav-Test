@@ -309,30 +309,39 @@
                 const fileInfo = await checkResponse.json();
                 console.log('文件信息:', fileInfo);
 
-                // 使用 OnlyOffice Document Server 编辑
-                // 标准 OnlyOffice 配置格式
-                const editorConfig = {
-                    mode: 'edit',
-                    lang: 'zh-CN',
-                    user: {
-                        id: 'user_' + Math.random().toString(36).substr(2, 9),
-                        name: 'User'
-                    }
-                };
+                updateInfo('✓ 正在下载文件内容...');
 
+                // 第二步：直接下载文件，创建 blob URL
+                const fileResponse = await fetch(`${apiServer}/wopi/files/${fileName}/contents`);
+                if (!fileResponse.ok) {
+                    updateStatus(`❌ 文件下载失败 (${fileResponse.status})`, 'error');
+                    return;
+                }
+
+                const fileBlob = await fileResponse.blob();
+                const blobUrl = URL.createObjectURL(fileBlob);
+                console.log('Blob URL:', blobUrl);
+
+                // 第三步：使用 blob URL 初始化编辑器
                 const config = {
                     type: 'desktop',
                     documentType: 'word',
                     document: {
                         title: fileName,
-                        url: `${apiServer}/wopi/files/${fileName}/contents`,
+                        url: blobUrl,  // 使用 blob URL 而不是 API URL
                         fileType: 'docx',
                         key: fileName + '_' + Date.now()
                     },
-                    editorConfig: editorConfig
+                    editorConfig: {
+                        mode: 'edit',
+                        lang: 'zh-CN',
+                        user: {
+                            id: 'user_' + Math.random().toString(36).substr(2, 9),
+                            name: 'User'
+                        }
+                    }
                 };
 
-                // 将 config 编码为 base64 后作为查询参数
                 const configEncoded = btoa(JSON.stringify(config));
                 const iframeUrl = `${oosServer}/web-apps/apps/documenteditor/main/index.html?config=${configEncoded}`;
 
@@ -349,7 +358,7 @@
                 iframe.src = iframeUrl;
 
                 updateStatus(`✅ OnlyOffice 编辑器已加载: ${fileName}`, 'success');
-                updateInfo(`✓ 文件: ${fileInfo.baseFileName} (${fileInfo.size} 字节) | 编辑模式 | 提示：编辑完成后使用下载功能保存文件`);
+                updateInfo(`✓ 文件已在编辑器中打开 | 大小: ${fileInfo.size} 字节`);
 
             } catch (error) {
                 console.error('加载失败:', error);

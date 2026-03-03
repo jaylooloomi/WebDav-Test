@@ -165,7 +165,7 @@
                 <div class="info-box" id="infoBox">
                     ℹ️ 输入文件名和服务器地址后，点击"加载编辑器"
                 </div>
-                <iframe id="wopi-iframe" src="about:blank"></iframe>
+                <iframe id="wopi-iframe" src="about:blank" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-presentation" allowfullscreen></iframe>
             </div>
         </div>
 
@@ -322,20 +322,12 @@
                 const blobUrl = URL.createObjectURL(fileBlob);
                 console.log('Blob URL:', blobUrl);
 
-                // 第三步：为 Collabora Online WOPI 集成准备参数
-                // 生成唯一的 token（在生产环境应该由后端生成和签名）
-                const accessToken = btoa(`${fileName}:${Date.now()}`);
-                const wopiSrcUrl = `${apiServer}/wopi/files/${fileName}`;
-                const accessTokenTTL = Math.floor(Date.now() / 1000) + 3600; // 1小时后过期
+                // 第三步：使用 Collabora Online 嵌入式編輯器
+                // Collabora 通過 blob URL 直接編輯檔案
+                const encodedBlobUrl = encodeURIComponent(blobUrl);
+                const iframeUrl = `${oosServer}/lool/remote.html?url=${encodedBlobUrl}`;
 
-                // Collabora WOPI 集成 URL
-                // 格式: http://collabora:9980/lool/ws/client/{unique-id}/edit?WOPISrc={encoded-wopi-url}
-                const uniqueId = Math.random().toString(36).substring(7);
-                const encodedWopiSrc = encodeURIComponent(wopiSrcUrl);
-                const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}&access_token=${accessToken}`;
-
-                console.log('WOPI 参数:', { wopiSrcUrl, accessToken, uniqueId });
-                console.log('iframe URL:', iframeUrl);
+                console.log('Collabora iframe URL:', iframeUrl);
 
                 // 加载 iframe
                 const iframe = document.getElementById('wopi-iframe');

@@ -225,7 +225,7 @@
             try {
                 const infoBox = document.getElementById('infoBox');
                 if (infoBox) {
-                    infoBox.textContent = message;
+                    infoBox.innerHTML = message;
                 }
             } catch (e) {
                 console.error('updateInfo 错误:', e);
@@ -309,26 +309,28 @@
                 const fileInfo = await checkResponse.json();
                 console.log('文件信息:', fileInfo);
 
-                updateInfo('✓ 正在下載檔案...');
-
-                // 第二步：直接從 API 下載檔案
+                // 第二步：下載檔案並提供選項
                 const fileResponse = await fetch(`${apiServer}/wopi/files/${fileName}/contents`);
                 if (!fileResponse.ok) {
                     updateStatus(`❌ 檔案下載失敗 (${fileResponse.status})`, 'error');
-                    updateInfo('檔案可能不存在或 API 發生錯誤');
+                    updateInfo('無法從 API 下載檔案');
                     return;
                 }
 
                 const fileBlob = await fileResponse.blob();
-                console.log('檔案 Blob 大小:', fileBlob.size);
-
-                // 第三步：建立 blob URL，讓瀏覽器可以方式存取
                 const blobUrl = URL.createObjectURL(fileBlob);
 
-                updateInfo('✓ 正在 Collabora 中打開檔案...');
+                // 方式 1：直接提供檔案下載連結
+                const downloadLink = document.createElement('a');
+                downloadLink.href = blobUrl;
+                downloadLink.download = fileName;
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
 
-                // 使用 blob URL 構建 iframe
-                const iframeUrl = `${oosServer}/lool/remote.html?file_path=${encodeURIComponent(blobUrl)}&title=${encodeURIComponent(fileName)}`;
+                // 方式 2：在 Collabora 中打開（使用指向 API 的直接 URL）
+                // 嘗試直接鏈接到 Collabora，讓它從 API 讀取
+                const apiFileUrl = `${apiServer}/wopi/files/${fileName}/contents`;
+                const collaboraUrl = `${oosServer}/?user_name=User&file_path=${encodeURIComponent(apiFileUrl)}`;
 
                 // 加載 iframe
                 const iframe = document.getElementById('wopi-iframe');
@@ -336,12 +338,23 @@
                     updateStatus('❌ iframe 元素不存在', 'error');
                     return;
                 }
-                
-                // 設置 iframe src
-                iframe.src = iframeUrl;
 
-                updateStatus(`✅ Collabora Online 編輯器已加載: ${fileName}`, 'success');
-                updateInfo(`✓ 檔案已在 Collabora 中打開\n大小: ${fileInfo.size} 字節\n\n提示：編輯完成後請在 Collabora 中選擇 "Download" 下載編輯的檔案`);
+                // 在 iframe 中加載 Collabora 主頁面
+                iframe.src = `${oosServer}/`;
+
+                const infoHtml = `
+                    <div style="line-height: 1.8;">
+                        <strong>✓ 檔案已準備就緒: ${fileName}</strong><br>
+                        大小: ${fileInfo.size} 字節<br><br>
+                        <strong>操作選項:</strong><br>
+                        1. 📥 下載檔案: <a href="${blobUrl}" download="${fileName}" style="color: #0078d4; text-decoration: underline; cursor: pointer; font-weight: bold;">點擊下載</a><br>
+                        2. 📤 使用上方上傳按鈕重新上傳編輯的檔案<br>
+                        3. 💻 在 iframe 中的 Collabora 編輯器中上傳文件
+                    </div>
+                `;
+
+                updateStatus(`✅ 檔案已準備就緒: ${fileName}`, 'success');
+                updateInfo(infoHtml);
 
             } catch (error) {
                 console.error('加载失败:', error);

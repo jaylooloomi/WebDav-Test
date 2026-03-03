@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OnlyOfficeAPI")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+55a98c7ee27aa309057b6c07baa077b4bc6b64f2")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bca155d91e1fc5333389646e8117705b8ab40f11")]
 [assembly: System.Reflection.AssemblyProductAttribute("OnlyOfficeAPI")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OnlyOfficeAPI")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

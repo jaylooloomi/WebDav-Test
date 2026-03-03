@@ -70,9 +70,9 @@ namespace OnlyOfficeAPI.Controllers
                 };
 
                 // 添加 WOPI 必要的 Response Headers
-                Response.Headers.Add("X-WOPI-ItemVersion", wopiFileInfo.Version);
-                Response.Headers.Add("X-WOPI-ServerError", "0");
-                Response.Headers.Add("Cache-Control", "no-cache");
+                Response.Headers["X-WOPI-ItemVersion"] = wopiFileInfo.Version;
+                Response.Headers["X-WOPI-ServerError"] = "0";
+                Response.Headers["Cache-Control"] = "no-cache";
 
                 _logger.LogInformation($"CheckFileInfo: 成功返回文件信息, 大小: {wopiFileInfo.Size} 字节");
                 return Ok(wopiFileInfo);
@@ -107,8 +107,8 @@ namespace OnlyOfficeAPI.Controllers
                 var fileInfo = new FileInfo(filePath);
                 
                 // 添加 WOPI 必要的 Response Headers
-                Response.Headers.Add("X-WOPI-ItemVersion", fileInfo.LastWriteTime.Ticks.ToString());
-                Response.Headers.Add("Cache-Control", "no-cache");
+                Response.Headers["X-WOPI-ItemVersion"] = fileInfo.LastWriteTime.Ticks.ToString();
+                Response.Headers["Cache-Control"] = "no-cache";
 
                 // 读取文件内容并返回为文件流
                 var fileStream = System.IO.File.OpenRead(filePath);

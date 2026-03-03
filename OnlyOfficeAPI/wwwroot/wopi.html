@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WOPI Office Online Server 编辑器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f5f5;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: #2b579a;
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .controls {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .controls label {
+            font-weight: 500;
+            color: #333;
+            margin-right: 10px;
+        }
+
+        .controls input,
+        .controls select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .controls button {
+            padding: 8px 16px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        .controls button:hover {
+            background: #005a9e;
+        }
+
+        .editor-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .editor-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            margin: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        iframe {
+            flex: 1;
+            border: none;
+            background: white;
+        }
+
+        .status {
+            background: white;
+            padding: 10px 20px;
+            border-top: 1px solid #e0e0e0;
+            font-size: 12px;
+            color: #666;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status.loading {
+            color: #ff9800;
+        }
+
+        .status.success {
+            color: #4caf50;
+        }
+
+        .status.error {
+            color: #f44336;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #1565c0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 WOPI Office Online Server 编辑器</h1>
+            <p>使用 Microsoft Office Online 在线编辑文档</p>
+        </div>
+
+        <div class="controls">
+            <label for="fileInput">选择文件:</label>
+            <input type="text" id="fileInput" placeholder="例如: test.docx" value="test.docx" style="flex: 1;">
+            
+            <label for="oosServerInput">OOS 服务器:</label>
+            <input type="text" id="oosServerInput" placeholder="例如: http://oos-server:8080" 
+                   value="http://localhost:8080" style="flex: 1;">
+            
+            <label for="apiServerInput">API 服务器:</label>
+            <input type="text" id="apiServerInput" placeholder="例如: http://192.168.137.1:5001" 
+                   value="http://192.168.137.1:5001" style="flex: 1;">
+            
+            <button onclick="loadEditor()">加载编辑器</button>
+        </div>
+
+        <div class="editor-container">
+            <div class="editor-wrapper">
+                <div class="info-box" id="infoBox">
+                    ℹ️ 输入文件名和服务器地址后，点击"加载编辑器"
+                </div>
+                <iframe id="wopi-iframe" src="about:blank"></iframe>
+            </div>
+        </div>
+
+        <div class="status" id="status">
+            <span>准备就绪</span>
+            <span id="timestamp"></span>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * WOPI iframe 加载器
+         * 
+         * WOPI 工作流程:
+         * 1. 前端请求 /wopi/files/{fileId} 获取文件信息
+         * 2. 获取访问令牌用于安全访问
+         * 3. 组装 OOS iframe URL，包含 WOPISrc 参数
+         * 4. OOS 通过 WOPISrc 调用我们的 API 来读写文件
+         */
+
+        const updateStatus = (message, type = '') => {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            document.getElementById('timestamp').textContent = new Date().toLocaleTimeString();
+        };
+
+        const updateInfo = (message) => {
+            document.getElementById('infoBox').textContent = message;
+        };
+
+        async function loadEditor() {
+            const fileName = document.getElementById('fileInput').value.trim();
+            const oosServer = document.getElementById('oosServerInput').value.trim();
+            const apiServer = document.getElementById('apiServerInput').value.trim();
+
+            if (!fileName || !oosServer || !apiServer) {
+                updateStatus('❌ 请输入所有必要参数', 'error');
+                return;
+            }
+
+            updateStatus('⏳ 正在验证文件...', 'loading');
+            updateInfo('✓ 正在验证文件信息...');
+
+            try {
+                // 第一步：调用 CheckFileInfo 验证文件存在
+                const checkResponse = await fetch(`${apiServer}/wopi/files/${fileName}`);
+                
+                if (!checkResponse.ok) {
+                    updateStatus('❌ 文件不存在或服务器错误', 'error');
+                    updateInfo('✗ API 返回状态码: ' + checkResponse.status);
+                    return;
+                }
+
+                const fileInfo = await checkResponse.json();
+                console.log('文件信息:', fileInfo);
+
+                // 生成访问令牌 (在实际应用中应该从后端获取)
+                const accessToken = generateAccessToken();
+                
+                // 构建 WOPISrc URL
+                // 格式: http://OOS/we/<app>/frameset.aspx?WOPISrc={WOPI_HOST_URL}&access_token={TOKEN}
+                const wopiSrc = `${apiServer}/wopi/files/${fileName}`;
+                
+                // Office Online Server 的 iframe 地址
+                // 对于 Word: /we/wordeditorframe.aspx
+                // 对于 Excel: /x/excelframe.aspx
+                // 对于 PowerPoint: /p/powerpoinu.aspx
+                const iframeUrl = `${oosServer}/we/wordeditorframe.aspx?WOPISrc=${encodeURIComponent(wopiSrc)}&access_token=${accessToken}`;
+
+                console.log('iframe URL:', iframeUrl);
+
+                // 加载 iframe
+                const iframe = document.getElementById('wopi-iframe');
+                iframe.src = iframeUrl;
+
+                updateStatus(`✅ 编辑器已加载: ${fileName} (${fileInfo.size} 字节)`, 'success');
+                updateInfo(`✓ 文件: ${fileInfo.baseFileName} | 版本: ${fileInfo.version} | 可编辑: ${fileInfo.userCanWrite}`);
+
+            } catch (error) {
+                console.error('加载失败:', error);
+                updateStatus(`❌ 加载失败: ${error.message}`, 'error');
+                updateInfo(`✗ 错误详情: ${error.message}`);
+            }
+        }
+
+        function generateAccessToken() {
+            // 在实际应用中，访问令牌应该从后端安全生成
+            // 这里为了演示目的，生成一个简单的令牌
+            // 格式: base64_encoded_token
+            const timestamp = Date.now();
+            const token = `demo_token_${timestamp}`;
+            return btoa(token);
+        }
+
+        // 页面加载时的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStatus('✓ 页面已加载，请输入参数');
+            updateInfo('💡 提示: 确保 OOS 服务器和 WOPI API 服务器都在运行');
+
+            // 添加回车键支持
+            document.getElementById('fileInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') loadEditor();
+            });
+        });
+
+        // 监听消息以支持 iframe 与主页面的通信 (可选)
+        window.addEventListener('message', (event) => {
+            console.log('收到消息:', event.data);
+            
+            // 可以用于处理编辑完成、保存完成等事件
+            if (event.data.type === 'SAVE_SUCCESS') {
+                updateStatus('✅ 文件已成功保存', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

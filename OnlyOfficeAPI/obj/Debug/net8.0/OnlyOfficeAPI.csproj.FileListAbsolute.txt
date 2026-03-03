@@ -35,3 +35,4 @@ D:\git\webdav\OnlyOfficeAPI\obj\Debug\net8.0\refint\OnlyOfficeAPI.dll
 D:\git\webdav\OnlyOfficeAPI\obj\Debug\net8.0\OnlyOfficeAPI.pdb
 D:\git\webdav\OnlyOfficeAPI\obj\Debug\net8.0\OnlyOfficeAPI.genruntimeconfig.cache
 D:\git\webdav\OnlyOfficeAPI\obj\Debug\net8.0\ref\OnlyOfficeAPI.dll
+D:\git\webdav\OnlyOfficeAPI\obj\Debug\net8.0\OnlyOfficeAPI.sourcelink.json

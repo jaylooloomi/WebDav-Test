@@ -337,7 +337,7 @@
                 iframe.src = iframeUrl;
 
                 updateStatus(`✅ Collabora Online 編輯器已加載: ${fileName}`, 'success');
-                updateInfo(`✓ 文件已在編輯器中打開 | 大小: ${fileInfo.size} 字節`);
+                updateInfo(`✓ 文件已在編輯器中打開\n大小: ${fileInfo.size} 字節\n\niframe URL:\n${iframeUrl}`);
 
             } catch (error) {
                 console.error('加载失败:', error);

@@ -271,11 +271,12 @@
                 // 格式: http://OOS/we/<app>/frameset.aspx?WOPISrc={WOPI_HOST_URL}&access_token={TOKEN}
                 const wopiSrc = `${apiServer}/wopi/files/${fileName}`;
                 
-                // Office Online Server 的 iframe 地址
-                // 对于 Word: /we/wordeditorframe.aspx
-                // 对于 Excel: /x/excelframe.aspx
-                // 对于 PowerPoint: /p/powerpoinu.aspx
-                const iframeUrl = `${oosServer}/we/wordeditorframe.aspx?WOPISrc=${encodeURIComponent(wopiSrc)}&access_token=${accessToken}`;
+                // 使用 OnlyOffice Document Server 直接编辑
+                // 无需 WOPI 协议 - OnlyOffice 有原生编辑功能
+                const iframeUrl = `${oosServer}/web-apps/apps/documenteditor/main/index.html?` +
+                    `documentType=word&` +
+                    `fileName=${encodeURIComponent(fileName)}&` +
+                    `url=${encodeURIComponent(`${apiServer}/wopi/files/${fileName}/contents`)}`;
 
                 console.log('iframe URL:', iframeUrl);
 
@@ -288,8 +289,8 @@
                 
                 iframe.src = iframeUrl;
 
-                updateStatus(`✅ 编辑器已加载: ${fileName} (${fileInfo.size} 字节)`, 'success');
-                updateInfo(`✓ 文件: ${fileInfo.baseFileName} | 版本: ${fileInfo.version} | 可编辑: ${fileInfo.userCanWrite}`);
+                updateStatus(`✅ OnlyOffice 编辑器已加载: ${fileName} (${fileInfo.size} 字节)`, 'success');
+                updateInfo(`✓ 文件: ${fileInfo.baseFileName} | 可编辑: ${fileInfo.userCanWrite}`);
 
             } catch (error) {
                 console.error('加载失败:', error);

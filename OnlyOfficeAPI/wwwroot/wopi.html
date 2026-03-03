@@ -138,17 +138,17 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📄 WOPI Office Online Server 编辑器</h1>
-            <p>使用 Microsoft Office Online 在线编辑文档</p>
+            <h1>📄 Collabora Online WOPI 编辑器</h1>
+            <p>使用开源 Office Online (Collabora) 通过 WOPI 协议在线编辑文档</p>
         </div>
 
         <div class="controls">
             <label for="fileInput">选择文件:</label>
             <input type="text" id="fileInput" placeholder="例如: test.docx" value="test.docx" style="flex: 1;">
             
-            <label for="oosServerInput">OOS 服务器:</label>
-            <input type="text" id="oosServerInput" placeholder="例如: http://oos-server:8080" 
-                   value="http://localhost:8080" style="flex: 1;">
+            <label for="oosServerInput">Collabora 服务器:</label>
+            <input type="text" id="oosServerInput" placeholder="例如: http://localhost:9980" 
+                   value="http://localhost:9980" style="flex: 1;">
             
             <label for="apiServerInput">API 服务器:</label>
             <input type="text" id="apiServerInput" placeholder="例如: http://192.168.137.1:5001" 
@@ -261,7 +261,7 @@
                 const results = [
                     `✓ API 服务器 (${apiServer}): ${apiHealth ? '✅ 可达' : '❌ 不可达'}`,
                     `✓ 文件信息接口 (${apiServer}/wopi/files/test.docx): ${fileTest ? '✅ 可达' : '❌ 不可达'}`,
-                    `✓ OnlyOffice 服务器 (${oosServer}): 请访问该地址验证`
+                    `✓ Collabora Online 服务器 (${oosServer}): 请访问该地址验证`
                 ].join('\n');
 
                 updateStatus('✅ 诊断完成', 'success');
@@ -322,28 +322,17 @@
                 const blobUrl = URL.createObjectURL(fileBlob);
                 console.log('Blob URL:', blobUrl);
 
-                // 第三步：使用 blob URL 初始化编辑器
-                const config = {
-                    type: 'desktop',
-                    documentType: 'word',
-                    document: {
-                        title: fileName,
-                        url: blobUrl,  // 使用 blob URL 而不是 API URL
-                        fileType: 'docx',
-                        key: fileName + '_' + Date.now()
-                    },
-                    editorConfig: {
-                        mode: 'edit',
-                        lang: 'zh-CN',
-                        user: {
-                            id: 'user_' + Math.random().toString(36).substr(2, 9),
-                            name: 'User'
-                        }
-                    }
-                };
+                // 第三步：为 Collabora Online WOPI 集成准备参数
+                // 生成唯一的 token（在生产环境应该由后端生成和签名）
+                const accessToken = btoa(`${fileName}:${Date.now()}`);
+                const wopiSrcUrl = `${apiServer}/wopi/files/${fileName}`;
+                const accessTokenTTL = Math.floor(Date.now() / 1000) + 3600; // 1小时后过期
 
-                const configEncoded = btoa(JSON.stringify(config));
-                const iframeUrl = `${oosServer}/web-apps/apps/documenteditor/main/index.html?config=${configEncoded}`;
+                // Collabora WOPI 集成 URL
+                // 格式: http://collabora:9980/lool/ws/client/{unique-id}/edit?WOPISrc={encoded-wopi-url}
+                const uniqueId = Math.random().toString(36).substring(7);
+                const encodedWopiSrc = encodeURIComponent(wopiSrcUrl);
+                const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}&access_token=${accessToken}`;
 
                 console.log('config:', config);
                 console.log('iframe URL:', iframeUrl);
@@ -357,8 +346,8 @@
                 
                 iframe.src = iframeUrl;
 
-                updateStatus(`✅ OnlyOffice 编辑器已加载: ${fileName}`, 'success');
-                updateInfo(`✓ 文件已在编辑器中打开 | 大小: ${fileInfo.size} 字节`);
+                updateStatus(`✅ Collabora Online 编辑器已加载: ${fileName}`, 'success');
+                updateInfo(`✓ 文件已在编辑器中打开 | 大小: ${fileInfo.size} 字节 | WOPI 模式已启用`);
 
             } catch (error) {
                 console.error('加载失败:', error);

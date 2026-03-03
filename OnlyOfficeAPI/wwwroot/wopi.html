@@ -155,7 +155,8 @@
                    value="http://192.168.137.1:5001" style="flex: 1;">
             
             <button onclick="loadEditor()">加载编辑器</button>
-            <button onclick="document.getElementById('uploadInput').click()" style="background: #17a2b8;">📤 上传编辑后的文件</button>
+            <button onclick="testConnection()" style="background: #6c757d;">🔍 测试连接</button>
+            <button onclick="document.getElementById('uploadInput').click()" style="background: #17a2b8;">📤 上传文件</button>
             <input type="file" id="uploadInput" style="display: none;" accept=".docx,.xlsx,.pptx,.doc,.xls,.ppt" onchange="handleFileUpload(event)">
         </div>
 
@@ -230,6 +231,48 @@
                 console.error('updateInfo 错误:', e);
             }
         };
+
+        async function testConnection() {
+            try {
+                const apiServerInput = document.getElementById('apiServerInput');
+                const oosServerInput = document.getElementById('oosServerInput');
+                
+                if (!apiServerInput || !oosServerInput) {
+                    updateStatus('❌ 页面配置错误', 'error');
+                    return;
+                }
+
+                const apiServer = apiServerInput.value.trim();
+                const oosServer = oosServerInput.value.trim();
+
+                updateStatus('⏳ 测试连接中...', 'loading');
+                updateInfo('✓ 测试 API 和编辑器服务器连接...');
+
+                // 测试 API 健康检查
+                const apiHealth = await fetch(`${apiServer}/wopi/health`, { method: 'GET' })
+                    .then(r => r.status === 200)
+                    .catch(() => false);
+
+                // 测试文件端点
+                const fileTest = await fetch(`${apiServer}/wopi/files/test.docx`, { method: 'GET' })
+                    .then(r => r.status === 200)
+                    .catch(() => false);
+
+                const results = [
+                    `✓ API 服务器 (${apiServer}): ${apiHealth ? '✅ 可达' : '❌ 不可达'}`,
+                    `✓ 文件信息接口 (${apiServer}/wopi/files/test.docx): ${fileTest ? '✅ 可达' : '❌ 不可达'}`,
+                    `✓ OnlyOffice 服务器 (${oosServer}): 请访问该地址验证`
+                ].join('\n');
+
+                updateStatus('✅ 诊断完成', 'success');
+                updateInfo(results);
+
+            } catch (error) {
+                console.error('连接测试失败:', error);
+                updateStatus(`❌ 测试失败: ${error.message}`, 'error');
+                updateInfo(`✗ 错误详情: ${error.message}`);
+            }
+        }
 
         async function loadEditor() {
             try {
@@ -315,15 +358,6 @@
             }
         }
 
-        // OnlyOffice 全局事件处理函数
-        window.onDocumentStateChange = function() {
-            console.log('文档状态已改变');
-        };
-
-        window.onError = function(error) {
-            console.error('OnlyOffice 错误:', error);
-        };
-
         async function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -386,6 +420,15 @@
                 updateInfo(`✗ 错误详情: ${error.message}`);
             }
         }
+
+        // OnlyOffice 全局事件处理函数
+        window.onDocumentStateChange = function() {
+            console.log('文档状态已改变');
+        };
+
+        window.onError = function(error) {
+            console.error('OnlyOffice 错误:', error);
+        };
 
         function generateAccessToken() {
             // 在实际应用中，访问令牌应该从后端安全生成

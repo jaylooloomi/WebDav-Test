@@ -138,17 +138,17 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📄 Collabora Online WOPI 编辑器</h1>
-            <p>使用开源 Office Online (Collabora) 通过 WOPI 协议在线编辑文档</p>
+            <h1>📄 OnlyOffice 文檔編輯器</h1>
+            <p>使用 OnlyOffice Document Server 在線編輯 Word、Excel、PowerPoint 文檔</p>
         </div>
 
         <div class="controls">
             <label for="fileInput">选择文件:</label>
             <input type="text" id="fileInput" placeholder="例如: test.docx" value="test.docx" style="flex: 1;">
             
-            <label for="oosServerInput">Collabora 服务器:</label>
-            <input type="text" id="oosServerInput" placeholder="例如: http://localhost:9980" 
-                   value="http://localhost:9980" style="flex: 1;">
+            <label for="oosServerInput">OnlyOffice 服務器:</label>
+            <input type="text" id="oosServerInput" placeholder="例如: http://localhost:8080" 
+                   value="http://localhost:8080" style="flex: 1;">
             
             <label for="apiServerInput">API 服务器:</label>
             <input type="text" id="apiServerInput" placeholder="例如: http://192.168.137.1:5001" 
@@ -309,7 +309,9 @@
                 const fileInfo = await checkResponse.json();
                 console.log('文件信息:', fileInfo);
 
-                // 第二步：下載檔案並提供選項
+                updateInfo('✓ 正在下載檔案...');
+
+                // 第二步：下載檔案
                 const fileResponse = await fetch(`${apiServer}/wopi/files/${fileName}/contents`);
                 if (!fileResponse.ok) {
                     updateStatus(`❌ 檔案下載失敗 (${fileResponse.status})`, 'error');
@@ -320,40 +322,70 @@
                 const fileBlob = await fileResponse.blob();
                 const blobUrl = URL.createObjectURL(fileBlob);
 
-                // 方式 1：直接提供檔案下載連結
-                const downloadLink = document.createElement('a');
-                downloadLink.href = blobUrl;
-                downloadLink.download = fileName;
-                downloadLink.style.display = 'none';
-                document.body.appendChild(downloadLink);
+                updateInfo('✓ 正在 Collabora 中打開檔案...');
 
-                // 方式 2：在 Collabora 中打開（使用指向 API 的直接 URL）
-                // 嘗試直接鏈接到 Collabora，讓它從 API 讀取
-                const apiFileUrl = `${apiServer}/wopi/files/${fileName}/contents`;
-                const collaboraUrl = `${oosServer}/?user_name=User&file_path=${encodeURIComponent(apiFileUrl)}`;
+                // 第三步：在 OnlyOffice 中打開檔案
+                const documentServerUrl = oosServer;
+                
+                // 構建 OnlyOffice 編輯器配置
+                const config = {
+                    type: 'desktop',
+                    documentType: fileName.endsWith('.docx') ? 'word' : 
+                                 fileName.endsWith('.xlsx') ? 'spreadsheet' : 
+                                 fileName.endsWith('.pptx') ? 'presentation' : 'word',
+                    document: {
+                        title: fileName,
+                        url: blobUrl,
+                        fileType: fileName.split('.').pop(),
+                        key: fileName + '_' + Date.now()
+                    },
+                    editorConfig: {
+                        mode: 'edit',
+                        lang: 'zh-CN',
+                        user: {
+                            id: 'user_' + Math.random().toString(36).substr(2, 9),
+                            name: 'User'
+                        },
+                        customization: {
+                            autosave: true,
+                            compactToolbar: false
+                        }
+                    },
+                    events: {
+                        onDocumentStateChange: function() {
+                            console.log('Document state changed');
+                        },
+                        onError: function(error) {
+                            console.error('OnlyOffice error:', error);
+                            updateStatus('❌ 編輯器錯誤: ' + error, 'error');
+                        }
+                    }
+                };
 
-                // 加載 iframe
+                // 編碼配置
+                const configEncoded = btoa(JSON.stringify(config));
+                
+                // 構建 iframe URL
+                const iframeUrl = `${documentServerUrl}/web-apps/apps/documenteditor/main/index.html?config=${configEncoded}`;
+                
                 const iframe = document.getElementById('wopi-iframe');
-                if (!iframe) {
-                    updateStatus('❌ iframe 元素不存在', 'error');
-                    return;
+                if (iframe) {
+                    iframe.src = iframeUrl;
                 }
 
-                // 在 iframe 中加載 Collabora 主頁面
-                iframe.src = `${oosServer}/`;
-
+                updateStatus(`✅ OnlyOffice 編輯器已加載: ${fileName}`, 'success');
                 const infoHtml = `
-                    <div style="line-height: 1.8;">
-                        <strong>✓ 檔案已準備就緒: ${fileName}</strong><br>
+                    <div style="line-height: 1.8; background: #e8f4f8; padding: 12px; border-radius: 4px; color: #1565c0;">
+                        <strong>✓ 檔案已在編輯器中打開: ${fileName}</strong><br>
                         大小: ${fileInfo.size} 字節<br><br>
-                        <strong>操作選項:</strong><br>
-                        1. 📥 下載檔案: <a href="${blobUrl}" download="${fileName}" style="color: #0078d4; text-decoration: underline; cursor: pointer; font-weight: bold;">點擊下載</a><br>
-                        2. 📤 使用上方上傳按鈕重新上傳編輯的檔案<br>
-                        3. 💻 在 iframe 中的 Collabora 編輯器中上傳文件
+                        <strong>📝 編輯步驟:</strong><br>
+                        1. 在上方 OnlyOffice 編輯器中直接編輯<br>
+                        2. 編輯內容自動保存<br>
+                        3. 編輯完成後使用 "File → Download" 下載<br>
+                        4. 使用下方 📤 上傳按鈕重新上傳到服務器<br><br>
+                        <strong>💡 提示:</strong> 編輯中遇到問題請檢查 F12 開發者工具
                     </div>
                 `;
-
-                updateStatus(`✅ 檔案已準備就緒: ${fileName}`, 'success');
                 updateInfo(infoHtml);
 
             } catch (error) {
@@ -414,10 +446,15 @@
                 console.log('上传结果:', uploadData);
 
                 updateStatus(`✅ 上传成功: ${file.name}`, 'success');
-                updateInfo(`✓ 文件已保存到服务器: ${targetFileName}`);
+                updateInfo(`✓ 文件已保存到服务器: ${targetFileName}\n\n正在自動刷新編輯器...`);
 
                 // 重置文件输入
                 event.target.value = '';
+
+                // 延遲後自動重新載入編輯器
+                setTimeout(() => {
+                    loadEditor();
+                }, 1000);
 
             } catch (error) {
                 console.error('上传失败:', error);

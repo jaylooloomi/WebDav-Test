@@ -183,36 +183,80 @@
          * 4. OOS 通过 WOPISrc 调用我们的 API 来读写文件
          */
 
-        const updateStatus = (message, type = '') => {
+        // 初始化函数 - 在 DOM 加载完后调用
+        function initializeUI() {
             const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-            document.getElementById('timestamp').textContent = new Date().toLocaleTimeString();
+            if (status && status.firstElementChild) {
+                status.firstElementChild.textContent = '准备就绪';
+            }
+            const timestamp = document.getElementById('timestamp');
+            if (timestamp) {
+                timestamp.textContent = new Date().toLocaleTimeString();
+            }
+        }
+
+        const updateStatus = (message, type = '') => {
+            try {
+                const status = document.getElementById('status');
+                if (status) {
+                    // 找到第一个 span 或创建一个
+                    let messageSpan = status.querySelector('span:first-child');
+                    if (messageSpan) {
+                        messageSpan.textContent = message;
+                    } else {
+                        status.innerHTML = `<span>${message}</span><span id="timestamp"></span>`;
+                        messageSpan = status.querySelector('span:first-child');
+                    }
+                    status.className = `status ${type}`;
+                }
+                const timestamp = document.getElementById('timestamp');
+                if (timestamp) {
+                    timestamp.textContent = new Date().toLocaleTimeString();
+                }
+            } catch (e) {
+                console.error('updateStatus 错误:', e);
+            }
         };
 
         const updateInfo = (message) => {
-            document.getElementById('infoBox').textContent = message;
+            try {
+                const infoBox = document.getElementById('infoBox');
+                if (infoBox) {
+                    infoBox.textContent = message;
+                }
+            } catch (e) {
+                console.error('updateInfo 错误:', e);
+            }
         };
 
         async function loadEditor() {
-            const fileName = document.getElementById('fileInput').value.trim();
-            const oosServer = document.getElementById('oosServerInput').value.trim();
-            const apiServer = document.getElementById('apiServerInput').value.trim();
-
-            if (!fileName || !oosServer || !apiServer) {
-                updateStatus('❌ 请输入所有必要参数', 'error');
-                return;
-            }
-
-            updateStatus('⏳ 正在验证文件...', 'loading');
-            updateInfo('✓ 正在验证文件信息...');
-
             try {
+                const fileInput = document.getElementById('fileInput');
+                const oosServerInput = document.getElementById('oosServerInput');
+                const apiServerInput = document.getElementById('apiServerInput');
+
+                if (!fileInput || !oosServerInput || !apiServerInput) {
+                    updateStatus('❌ 页面元素加载失败，请刷新页面', 'error');
+                    return;
+                }
+
+                const fileName = fileInput.value.trim();
+                const oosServer = oosServerInput.value.trim();
+                const apiServer = apiServerInput.value.trim();
+
+                if (!fileName || !oosServer || !apiServer) {
+                    updateStatus('❌ 请输入所有必要参数', 'error');
+                    return;
+                }
+
+                updateStatus('⏳ 正在验证文件...', 'loading');
+                updateInfo('✓ 正在验证文件信息...');
+
                 // 第一步：调用 CheckFileInfo 验证文件存在
                 const checkResponse = await fetch(`${apiServer}/wopi/files/${fileName}`);
                 
                 if (!checkResponse.ok) {
-                    updateStatus('❌ 文件不存在或服务器错误', 'error');
+                    updateStatus(`❌ 文件不存在或服务器错误 (${checkResponse.status})`, 'error');
                     updateInfo('✗ API 返回状态码: ' + checkResponse.status);
                     return;
                 }
@@ -237,6 +281,11 @@
 
                 // 加载 iframe
                 const iframe = document.getElementById('wopi-iframe');
+                if (!iframe) {
+                    updateStatus('❌ iframe 元素不存在', 'error');
+                    return;
+                }
+                
                 iframe.src = iframeUrl;
 
                 updateStatus(`✅ 编辑器已加载: ${fileName} (${fileInfo.size} 字节)`, 'success');
@@ -259,22 +308,45 @@
         }
 
         // 页面加载时的初始化
-        document.addEventListener('DOMContentLoaded', () => {
-            updateStatus('✓ 页面已加载，请输入参数');
-            updateInfo('💡 提示: 确保 OOS 服务器和 WOPI API 服务器都在运行');
-
-            // 添加回车键支持
-            document.getElementById('fileInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') loadEditor();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function onDOMReady() {
+                document.removeEventListener('DOMContentLoaded', onDOMReady);
+                initializeUI();
+                setupEventListeners();
+                updateStatus('✓ 页面已加载，请输入参数', '');
+                updateInfo('💡 提示: 确保 OOS 服务器和 WOPI API 服务器都在运行');
             });
-        });
+        } else {
+            // DOM 已经加载
+            setTimeout(() => {
+                initializeUI();
+                setupEventListeners();
+                updateStatus('✓ 页面已加载，请输入参数', '');
+                updateInfo('💡 提示: 确保 OOS 服务器和 WOPI API 服务器都在运行');
+            }, 0);
+        }
+
+        function setupEventListeners() {
+            try {
+                const fileInput = document.getElementById('fileInput');
+                if (fileInput) {
+                    fileInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            loadEditor();
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error('设置事件监听失败:', e);
+            }
+        }
 
         // 监听消息以支持 iframe 与主页面的通信 (可选)
         window.addEventListener('message', (event) => {
             console.log('收到消息:', event.data);
             
             // 可以用于处理编辑完成、保存完成等事件
-            if (event.data.type === 'SAVE_SUCCESS') {
+            if (event.data && event.data.type === 'SAVE_SUCCESS') {
                 updateStatus('✅ 文件已成功保存', 'success');
             }
         });

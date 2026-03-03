@@ -309,32 +309,39 @@
                 const fileInfo = await checkResponse.json();
                 console.log('文件信息:', fileInfo);
 
-                updateInfo('✓ 準備在 Collabora 中打開...');
+                updateInfo('✓ 正在下載檔案...');
 
-                // 第二步：使用 host.docker.internal 構建 WOPI 訪問 URL
-                // 這樣 Collabora 容器可以訪問主機上的 API
-                // 注意：WOPISrc 應該指向 CheckFileInfo 端點（不是 /contents）
-                const wopiSrcUrl = `http://host.docker.internal:5001/wopi/files/${fileName}`;
-                
-                // 第三步：使用嚴格的 WOPI iframe 格式
-                // 格式：http://collabora:9980/lool/ws/client/{unique-id}/edit?WOPISrc={encoded-wopi-src}
-                const uniqueId = Math.random().toString(36).substring(2, 9);
-                const encodedWopiSrc = encodeURIComponent(wopiSrcUrl);
-                const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}`;
+                // 第二步：直接從 API 下載檔案
+                const fileResponse = await fetch(`${apiServer}/wopi/files/${fileName}/contents`);
+                if (!fileResponse.ok) {
+                    updateStatus(`❌ 檔案下載失敗 (${fileResponse.status})`, 'error');
+                    updateInfo('檔案可能不存在或 API 發生錯誤');
+                    return;
+                }
 
-                console.log('Collabora WOPI 參數:', { wopiSrcUrl, uniqueId, iframeUrl });
+                const fileBlob = await fileResponse.blob();
+                console.log('檔案 Blob 大小:', fileBlob.size);
 
-                // 加载 iframe
+                // 第三步：建立 blob URL，讓瀏覽器可以方式存取
+                const blobUrl = URL.createObjectURL(fileBlob);
+
+                updateInfo('✓ 正在 Collabora 中打開檔案...');
+
+                // 使用 blob URL 構建 iframe
+                const iframeUrl = `${oosServer}/lool/remote.html?file_path=${encodeURIComponent(blobUrl)}&title=${encodeURIComponent(fileName)}`;
+
+                // 加載 iframe
                 const iframe = document.getElementById('wopi-iframe');
                 if (!iframe) {
                     updateStatus('❌ iframe 元素不存在', 'error');
                     return;
                 }
                 
+                // 設置 iframe src
                 iframe.src = iframeUrl;
 
                 updateStatus(`✅ Collabora Online 編輯器已加載: ${fileName}`, 'success');
-                updateInfo(`✓ 文件已在編輯器中打開\n大小: ${fileInfo.size} 字節\n\niframe URL:\n${iframeUrl}`);
+                updateInfo(`✓ 檔案已在 Collabora 中打開\n大小: ${fileInfo.size} 字節\n\n提示：編輯完成後請在 Collabora 中選擇 "Download" 下載編輯的檔案`);
 
             } catch (error) {
                 console.error('加载失败:', error);

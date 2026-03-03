@@ -165,6 +165,59 @@ namespace OnlyOfficeAPI.Controllers
         }
 
         /// <summary>
+        /// 文件上传端点
+        /// 用户在 OnlyOffice 中编辑完文件后，可以下载文件然后通过此端点上传回服务器
+        /// 路由: POST /wopi/upload
+        /// </summary>
+        [HttpPost("upload")]
+        public async Task<IActionResult> Upload([FromQuery] string fileName)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(fileName))
+                {
+                    return BadRequest(new { error = "fileName query parameter is required" });
+                }
+
+                var filePath = Path.Combine(_wopiFilePath, fileName);
+
+                _logger.LogInformation($"Upload: 接收文件上传 {filePath}");
+
+                // 确保目录存在
+                Directory.CreateDirectory(_wopiFilePath);
+
+                // 从请求体读取二进制数据
+                using (var stream = new MemoryStream())
+                {
+                    await Request.Body.CopyToAsync(stream);
+                    var fileContent = stream.ToArray();
+
+                    if (fileContent.Length == 0)
+                    {
+                        return BadRequest(new { error = "File content is empty" });
+                    }
+
+                    // 保存文件
+                    await System.IO.File.WriteAllBytesAsync(filePath, fileContent);
+
+                    _logger.LogInformation($"Upload: 文件已成功保存, 大小: {fileContent.Length} 字节");
+                }
+
+                return Ok(new { 
+                    status = "success", 
+                    message = "File uploaded and saved successfully",
+                    fileName = fileName,
+                    filePath = filePath
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Upload 错误: {ex.Message}");
+                return StatusCode(500, new { error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// 健康检查端点
         /// </summary>
         [HttpGet("health")]

@@ -155,6 +155,8 @@
                    value="http://192.168.137.1:5001" style="flex: 1;">
             
             <button onclick="loadEditor()">加载编辑器</button>
+            <button onclick="document.getElementById('uploadInput').click()" style="background: #17a2b8;">📤 上传编辑后的文件</button>
+            <input type="file" id="uploadInput" style="display: none;" accept=".docx,.xlsx,.pptx,.doc,.xls,.ppt" onchange="handleFileUpload(event)">
         </div>
 
         <div class="editor-container">
@@ -325,6 +327,69 @@
         window.onError = function(error) {
             console.error('OnlyOffice 错误:', error);
         };
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const apiServerInput = document.getElementById('apiServerInput');
+                const fileInput = document.getElementById('fileInput');
+                
+                if (!apiServerInput || !fileInput) {
+                    updateStatus('❌ 页面配置错误', 'error');
+                    return;
+                }
+
+                const apiServer = apiServerInput.value.trim();
+                const targetFileName = fileInput.value.trim();
+
+                if (!apiServer || !targetFileName) {
+                    updateStatus('❌ 请输入 API 服务器地址和目标文件名', 'error');
+                    return;
+                }
+
+                updateStatus('⏳ 正在上传文件...', 'loading');
+                updateInfo(`✓ 上传中: ${file.name} (${file.size} 字节)`);
+
+                // 读取文件内容
+                const fileArrayBuffer = await file.arrayBuffer();
+
+                // 上传文件到服务器
+                const uploadResponse = await fetch(`${apiServer}/wopi/upload?fileName=${encodeURIComponent(targetFileName)}`, {
+                    method: 'POST',
+                    body: fileArrayBuffer,
+                    headers: {
+                        'Content-Type': 'application/octet-stream'
+                    }
+                });
+
+                if (!uploadResponse.ok) {
+                    let errorMessage = uploadResponse.statusText;
+                    try {
+                        const errorData = await uploadResponse.json();
+                        errorMessage = errorData.error || errorMessage;
+                    } catch (e) {}
+                    
+                    updateStatus(`❌ 上传失败: ${errorMessage}`, 'error');
+                    return;
+                }
+
+                const uploadData = await uploadResponse.json();
+                console.log('上传结果:', uploadData);
+
+                updateStatus(`✅ 上传成功: ${file.name}`, 'success');
+                updateInfo(`✓ 文件已保存到服务器: ${targetFileName}`);
+
+                // 重置文件输入
+                event.target.value = '';
+
+            } catch (error) {
+                console.error('上传失败:', error);
+                updateStatus(`❌ 上传失败: ${error.message}`, 'error');
+                updateInfo(`✗ 错误详情: ${error.message}`);
+            }
+        }
 
         function generateAccessToken() {
             // 在实际应用中，访问令牌应该从后端安全生成

@@ -313,14 +313,16 @@
 
                 // 第二步：使用 host.docker.internal 構建 WOPI 訪問 URL
                 // 這樣 Collabora 容器可以訪問主機上的 API
-                const wopiFileUrl = `http://host.docker.internal:5001/wopi/files/${fileName}`;
-                const wopiContentsUrl = `http://host.docker.internal:5001/wopi/files/${fileName}/contents`;
+                // 注意：WOPISrc 應該指向 CheckFileInfo 端點（不是 /contents）
+                const wopiSrcUrl = `http://host.docker.internal:5001/wopi/files/${fileName}`;
                 
-                // 第三步：使用簡單的 iframe，讓 Collabora 直接訪問檔案
-                // 格式：http://collabora:9980/lool/remote.html?url=<encoded-url>
-                const iframeUrl = `${oosServer}/lool/remote.html?url=${encodeURIComponent(wopiContentsUrl)}`;
+                // 第三步：使用嚴格的 WOPI iframe 格式
+                // 格式：http://collabora:9980/lool/ws/client/{unique-id}/edit?WOPISrc={encoded-wopi-src}
+                const uniqueId = Math.random().toString(36).substring(2, 9);
+                const encodedWopiSrc = encodeURIComponent(wopiSrcUrl);
+                const iframeUrl = `${oosServer}/lool/ws/client/${uniqueId}/edit?WOPISrc=${encodedWopiSrc}`;
 
-                console.log('Collabora iframe URL:', iframeUrl);
+                console.log('Collabora WOPI 參數:', { wopiSrcUrl, uniqueId, iframeUrl });
 
                 // 加载 iframe
                 const iframe = document.getElementById('wopi-iframe');
